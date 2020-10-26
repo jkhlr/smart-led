@@ -1,3 +1,5 @@
+import os
+
 import eventlet
 eventlet.monkey_patch()
 
@@ -21,7 +23,7 @@ app = Flask(__name__, static_folder='frontend/dist/')
 # the internet.
 CORS(app, resources={r'/*': {'origins': '*'}})
 socket = SocketIO(app, path='/ws/socket.io')
-db_file = 'devices.db'
+db_file = os.getenv('DB_PATH', 'devices.db')
 state_update_running = False
 
 
