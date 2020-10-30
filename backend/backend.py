@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import eventlet
+
 eventlet.monkey_patch()
 
 from flask import Flask, request, jsonify, Response
@@ -14,7 +15,6 @@ from requests.packages.urllib3.util.retry import Retry
 
 import sql_utils
 
-
 log = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='frontend/dist/')
@@ -26,7 +26,6 @@ CORS(app, resources={r'/*': {'origins': '*'}})
 socket = SocketIO(app, path='/ws/socket.io')
 db_file = Path(os.getenv('DB_DIR', '.')) / 'devices.db'
 state_update_running = False
-
 
 # set up HTTPAdapter to use for requests. Plain request does not allow to set
 # the number of retries attempted for an http request.
@@ -112,6 +111,72 @@ def device_status(device_name):
         return Response("{'message': 'status changed'}",
                         status=201,
                         mimetype='application/json')
+
+
+@app.route('/devices/<device_name>/status', methods=['GET'])
+def device_power_status(device_name):
+    device_status = sql_utils.get_device_status_sql(db_file, device_name)[0]
+    return str(device_status['power'])
+
+
+@app.route('/devices/<device_name>/powerOn', methods=['GET'])
+def device_power_on(device_name):
+    device_status = sql_utils.get_device_status_sql(db_file, device_name)[0]
+    status_dict = {'rgb': device_status['rgb'],
+                   'power': 1}
+    sql_utils.set_device_status_sql(db_file,
+                                    device_name=device_name,
+                                    status_dict=status_dict)
+
+    # start update thread
+    update_leds()
+
+    return Response("{'message': 'status changed'}",
+                    status=201,
+                    mimetype='application/json')
+
+
+@app.route('/devices/<device_name>/powerOff', methods=['GET'])
+def device_power_off(device_name):
+    device_status = sql_utils.get_device_status_sql(db_file, device_name)[0]
+    status_dict = {'rgb': device_status['rgb'],
+                   'power': 0}
+    sql_utils.set_device_status_sql(db_file,
+                                    device_name=device_name,
+                                    status_dict=status_dict)
+
+    # start update thread
+    update_leds()
+
+    return Response("{'message': 'status changed'}",
+                    status=201,
+                    mimetype='application/json')
+
+
+@app.route('/devices/<device_name>/color', methods=['GET'])
+def device_color_status(device_name):
+    device_status = sql_utils.get_device_status_sql(db_file, device_name)[0]
+    return "{:02X}{:02X}{:02X}".format(*device_status['rgb'])
+
+
+@app.route('/devices/<device_name>/color/<hex_rgb>', methods=['GET'])
+def device_color_set(device_name, hex_rgb):
+    rgb = tuple(
+        int('0x{}'.format(hex_rgb[i * 2:i * 2 + 2]), 16) for i in range(3))
+    print(rgb)
+    device_status = sql_utils.get_device_status_sql(db_file, device_name)[0]
+    status_dict = {'rgb': rgb,
+                   'power': device_status['power']}
+    sql_utils.set_device_status_sql(db_file,
+                                    device_name=device_name,
+                                    status_dict=status_dict)
+
+    # start update thread
+    update_leds()
+
+    return Response("{'message': 'status changed'}",
+                    status=201,
+                    mimetype='application/json')
 
 
 @socket.on('connect')
@@ -223,5 +288,4 @@ if __name__ == '__main__':
     # use this to get more informative output when debugging:
     # logging.basicConfig(level=logging.DEBUG)
     # start app
-    socket.run(app, host='0.0.0.0', debug=False, port=4999)
-
+    socket.run(app, host='0.0.0.0', debug=True, port=4999)
