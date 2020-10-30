@@ -1,9 +1,10 @@
 import os
+from pathlib import Path
 
 import eventlet
 eventlet.monkey_patch()
 
-from flask import Flask, request, jsonify, Response, render_template, send_from_directory
+from flask import Flask, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import requests
@@ -23,7 +24,7 @@ app = Flask(__name__, static_folder='frontend/dist/')
 # the internet.
 CORS(app, resources={r'/*': {'origins': '*'}})
 socket = SocketIO(app, path='/ws/socket.io')
-db_file = os.getenv('DB_PATH', 'devices.db')
+db_file = Path(os.getenv('DB_DIR', '.')) / 'devices.db'
 state_update_running = False
 
 

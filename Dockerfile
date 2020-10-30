@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM arm32v7/python:3.8-buster
 
 ENV TINI_VERSION v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-armhf /tini
